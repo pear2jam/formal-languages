@@ -270,7 +270,7 @@ def smt_ord_equal(a, b):
 
 
 with open('sol.smt2', 'a') as f:
-    f.write(f'(assert (or (and {smt_ord_compare(left_f.a, right_f.a)} {smt_ord_compare(left_f.a, right_f.a, ">=")}) (and {smt_ord_equal(left_f.a, right_f.a)} {smt_ord_compare(left_f.a, right_f.a, ">")})) )')
+    f.write(f'(assert (or (and {smt_ord_compare(left_f.a, right_f.a)} {smt_ord_compare(left_f.b, right_f.b, ">=")}) (and {smt_ord_equal(left_f.a, right_f.a)} {smt_ord_compare(left_f.b, right_f.b, ">")})) )')
 
 
 
