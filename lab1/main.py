@@ -5,7 +5,7 @@ class Coefficient:
     """
     def __init__(self, coef):
         """
-        Принимает на вход список термов алфавита (ENG|0-9|-|+)*
+        Принимает на вход список термов алфавита (ENG|0-9|+)*
         Последовательно идущие элементы означают произведение, знак + означает сумму
 
         Например: ['a', 'b', '+', 'c'] == ab+c
@@ -16,16 +16,6 @@ class Coefficient:
         """
         self.coef = coef
 
-    """
-    def inverse(self, x):
-        
-        #Меняет знак коэффициента и возращает его
-        #x : Coefficient
-        #return : Coefficient
-        if not len(x.coef): return x
-        if x.coef[0] == '-': return Coefficient(x.coef[1:])
-        return Coefficient(['-'] + x.coef)
-    """
 
     def __add__(self, y):
         
@@ -87,7 +77,7 @@ class Coefficient:
 
 class OrdinalCoef:
     """
-    Класс для работы с ординальными коэффициентами (выражения вида {sum from i to n [w^i * a_i]})
+    Класс для работы с ординальными коэффициентами (выражения вида {sum from i = n to 0 [w^i * a_i]})
     Коэффициенты хранятся как список объектов Coefficient, где i-й элемент равен R коэффициенту при w^(len(list) - i - 1)
     
     Например [2, 1, 3] == (w^2 * 2 + w * 1 + 3)
@@ -173,26 +163,31 @@ class Linear:
         return res
 
 
-s_in = input().split('->')
-left_in, right_in = list(s_in[0]), list(s_in[1])
-funcs = set(left_in+right_in)
 funcs_dict = {}
-for func in funcs:
-    a = OrdinalCoef([Coefficient(['a1'+func]), Coefficient(['a2'+func])])
-    b = OrdinalCoef([Coefficient(['b1'+func]), Coefficient(['b2'+func])])
-    funcs_dict[func] = Linear(a, b)
+funcs_list = []
+with open('input.txt', 'r') as f:
+    for line in f.read().splitlines():
+        s_in = line.split('->')    
+        left_in, right_in = list(s_in[0]), list(s_in[1])
+        funcs = set(left_in+right_in)
+        for func in funcs:
+            a = OrdinalCoef([Coefficient(['a1'+func]), Coefficient(['a2'+func])])
+            b = OrdinalCoef([Coefficient(['b1'+func]), Coefficient(['b2'+func])])
+            funcs_dict[func] = Linear(a, b)
+        left_f = funcs_dict[left_in[-1]]
+        right_f = funcs_dict[right_in[-1]]
 
-left_f = funcs_dict[left_in[-1]]
-right_f = funcs_dict[right_in[-1]]
+        for i in range(-2, -len(left_in)-1, -1):
+            left_f = funcs_dict[left_in[i]].composition(left_f)
+        for i in range(-2, -len(right_in)-1, -1):
+            right_f = funcs_dict[right_in[i]].composition(right_f)
+        funcs_list.append((left_f, right_f))
 
-for i in range(-2, -len(left_in)-1, -1):
-    left_f = funcs_dict[left_in[i]].composition(left_f)
-for i in range(-2, -len(right_in)-1, -1):
-    right_f = funcs_dict[right_in[i]].composition(right_f)
+
 
 
 with open('sol.smt2', 'w') as f:
-    for i in funcs:
+    for i in funcs_dict.keys():
         f.write(f'(declare-const a1{i} Int) \n')
         f.write(f'(declare-const a2{i} Int) \n')
         f.write(f'(declare-const b1{i} Int) \n')
@@ -236,7 +231,7 @@ def smt_ord_compare(a, b, sign='>'):
     Возвращает сравнение ординалов в формате smt
 
     a, b : OrdinalCoef
-    return str
+    return : str
     """
     a_list = [Coefficient(['000'])] * max(0, len(b.a_list)-len(a.a_list)) + a.a_list
     b_list = [Coefficient(['000'])] * max(0, len(a.a_list)-len(b.a_list)) + b.a_list
@@ -258,7 +253,7 @@ def smt_ord_equal(a, b):
     Возвращает проверку на равенство ординалов в формате smt
 
     a, b : OrdinalCoef
-    return str
+    return : str
     """
     a_list = [Coefficient(['000'])] * max(0, len(b.a_list)-len(a.a_list)) + a.a_list
     b_list = [Coefficient(['000'])] * max(0, len(a.a_list)-len(b.a_list)) + b.a_list
@@ -268,9 +263,20 @@ def smt_ord_equal(a, b):
         res += f'(= {smt_coef(a_list[i])} {smt_coef(b_list[i])})'
     return res + ')'
 
+def rule_smt(left_f, right_f):
+    """
+    Возвращает smt выражение для проверки правила переписывания в формате smt
+    left_f, right_f : Linear
+    return : str
+    """
+    return f'(or (and {smt_ord_compare(left_f.a, right_f.a)} {smt_ord_compare(left_f.b, right_f.b, ">=")}) (and {smt_ord_equal(left_f.a, right_f.a)} {smt_ord_compare(left_f.b, right_f.b, ">")}))'
+
 
 with open('sol.smt2', 'a') as f:
-    f.write(f'(assert (or (and {smt_ord_compare(left_f.a, right_f.a)} {smt_ord_compare(left_f.b, right_f.b, ">=")}) (and {smt_ord_equal(left_f.a, right_f.a)} {smt_ord_compare(left_f.b, right_f.b, ">")})) )')
+    f.write('(assert (and ')
+    for f1, f2 in funcs_list:
+        f.write(rule_smt(f1, f2))
+    f.write('))')
 
 
 
