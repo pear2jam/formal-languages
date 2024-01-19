@@ -220,9 +220,7 @@ class Automata:
         states_new = set(self.states)
         states_new.remove(self.finish)
         eps_aut = Automata({0, 1}, {'ε'}, {0: [['ε', 1]]}, 0, 1)
-        return eps_aut.parallel(
-            Automata(states_new, self.alphabet, self.map_transitions(self.transitions, mapping), self.start,
-                     self.start))
+        return eps_aut.concat(Automata(states_new, self.alphabet, self.map_transitions(self.transitions, mapping), self.start, self.start)).concat(eps_aut)
 
     def __str__(self):
         def print_transition(t):
