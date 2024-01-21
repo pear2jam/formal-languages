@@ -17,10 +17,10 @@ def parse_block(r):
     # 'LA - lookahead', 'LB' - lookbehind, 'CM' - common
     while r[0] == '(' and r[-1] == ')' and check_balance(r[1:-1]):
         r = r[1:-1]
-    if len(r) > 2 and r[0:2] == '?=' and r[-1] == '$':
-        return 'LA', r[2:-1]
-    if len(r) > 2 and r[0:2] == '<=' and r[-1] == '$':
-        return 'LB', r[2:-1]
+    if len(r) > 2 and r[0:2] == '?=':
+        return 'LA', r[2:]
+    if len(r) > 2 and r[0:2] == '<=':
+        return 'LB', r[2:]
     else:
         return 'CM', r
 
