@@ -8,5 +8,5 @@ sh run.sh
 
 ``` console
 (a,b)
-(b, ab)
+(b,ab)
 ```
