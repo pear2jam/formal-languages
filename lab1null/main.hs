@@ -22,7 +22,7 @@ main = do
   let cnt' s p
         | length p > length s = 0
         | otherwise = length [i | i <- [0 .. length s - length p], isPrefixOf p (drop i s)]
-  print a
+
   let alphabet = nub (concatMap (\[x, y] -> x ++ y) a)
 
   -- кол-во вхождений доминошек
