@@ -82,15 +82,16 @@ main = do
   res' ""
 
   -- пары букв на стыках доминошек
+  -- исправлен баг с подсчетом на стыках
   forM_ [0 .. length a - 1] $ \i ->
     forM_ [0 .. length a - 1] $ \j ->
       forM_ alphabet $ \letter1 ->
         forM_ alphabet $ \letter2 -> do
           res' $ "(declare-const Pu_" ++ [letter1] ++ [letter2] ++ "d" ++ show i ++ "d" ++ show j ++ " Int)"
-          res' $ "(assert (= Pu_" ++ [letter1] ++ [letter2] ++ "d" ++ show i ++ "d" ++ show j ++ " " ++ show (cnt' (a !! i !! 0 ++ a !! j !! 0) [letter1, letter2]) ++ "))"
+          res' $ "(assert (= Pu_" ++ [letter1] ++ [letter2] ++ "d" ++ show i ++ "d" ++ show j ++ " " ++ show (cnt' ((last (a !! i !! 0) : []) ++ (head (a !! j !! 0) : [])) [letter1, letter2]) ++ "))"
 
           res' $ "(declare-const Pd_" ++ [letter1] ++ [letter2] ++ "d" ++ show i ++ "d" ++ show j ++ " Int)"
-          res' $ "(assert (= Pd_" ++ [letter1] ++ [letter2] ++ "d" ++ show i ++ "d" ++ show j ++ " " ++ show (cnt' (a !! i !! 1 ++ a !! j !! 1) [letter1, letter2]) ++ "))"
+          res' $ "(assert (= Pd_" ++ [letter1] ++ [letter2] ++ "d" ++ show i ++ "d" ++ show j ++ " " ++ show (cnt' ((last (a !! i !! 1) : []) ++ (head (a !! j !! 1) : [])) [letter1, letter2]) ++ "))"
 
   res' ""
 
@@ -103,28 +104,18 @@ main = do
   res' ""
 
   -- сравним количество пар букв
-  let sum_u =
-        concat
-          [ ["(* Md" ++ show i ++ " Pu_" ++ [letter1] ++ [letter2] ++ "d" ++ show i ++ ")" | i <- [0 .. length a - 1]]
-            | letter1 <- alphabet,
-              letter2 <- alphabet
-          ]
-          ++ concat
-            [ ["(* Md" ++ show i ++ "d" ++ show j ++ " Pu_" ++ [letter1] ++ [letter2] ++ "d" ++ show i ++ "d" ++ show j ++ ")" | i <- [0 .. length a - 1], j <- [0 .. length a - 1]]
-              | letter1 <- alphabet,
-                letter2 <- alphabet
-            ]
-  let sum_d =
-        concat
-          [ ["(* Md" ++ show i ++ " Pd_" ++ [letter1] ++ [letter2] ++ "d" ++ show i ++ ")" | i <- [0 .. length a - 1]]
-            | letter1 <- alphabet,
-              letter2 <- alphabet
-          ]
-          ++ concat
-            [ ["(* Md" ++ show i ++ "d" ++ show j ++ " Pd_" ++ [letter1] ++ [letter2] ++ "d" ++ show i ++ "d" ++ show j ++ ")" | i <- [0 .. length a - 1], j <- [0 .. length a - 1]]
-              | letter1 <- alphabet,
-                letter2 <- alphabet
-            ]
-  res' $ "(assert (= (+ " ++ unwords sum_u ++ ") (+ " ++ unwords sum_d ++ ") ))"
+  -- измененный подсчет
+
+  forM_ alphabet $ \letter1 ->
+    forM_ alphabet $ \letter2 -> do
+      let r =
+            "(assert (= (+"
+              ++ concatMap (\i -> "(* Md" ++ show i ++ " Pu_" ++ [letter1] ++ [letter2] ++ "d" ++ show i ++ ")") [0 .. length a - 1]
+              ++ concatMap (\i -> concatMap (\j -> "(* Md" ++ show i ++ "d" ++ show j ++ " Pu_" ++ [letter1] ++ [letter2] ++ "d" ++ show i ++ "d" ++ show j ++ ")") [0 .. length a - 1]) [0 .. length a - 1]
+              ++ ") (+ "
+              ++ concatMap (\i -> "(* Md" ++ show i ++ " Pd_" ++ [letter1] ++ [letter2] ++ "d" ++ show i ++ ")") [0 .. length a - 1]
+              ++ concatMap (\i -> concatMap (\j -> "(* Md" ++ show i ++ "d" ++ show j ++ " Pd_" ++ [letter1] ++ [letter2] ++ "d" ++ show i ++ "d" ++ show j ++ ")") [0 .. length a - 1]) [0 .. length a - 1]
+              ++ ")))"
+      res' r
 
   res' "(check-sat)"
