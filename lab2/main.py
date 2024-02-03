@@ -40,6 +40,11 @@ class ReTree:
 
 
 def parse_regex(r):
+    # Избавляемся от ограничивающих знаков
+    if len(r) and r[0] == '^': r = r[1:]
+    if len(r) and r[-1] == '$': r = r[:-1]
+
+    
     # Останавливаемся на символах и пустых строках
     if len(r) == 0:
         return ReTree('empty', [])
@@ -165,5 +170,5 @@ def regex_to_automata(reg_tree):
 
 
 
-r = input()[1:-1]
+r = input()
 print('^' + regex_to_automata(parse_regex(r)).to_regex() + '$')
