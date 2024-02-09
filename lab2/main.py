@@ -44,7 +44,6 @@ def parse_regex(r):
     if len(r) and r[0] == '^': r = r[1:]
     if len(r) and r[-1] == '$': r = r[:-1]
 
-    
     # Останавливаемся на символах и пустых строках
     if len(r) == 0:
         return ReTree('empty', [])
@@ -169,6 +168,55 @@ def regex_to_automata(reg_tree):
         return Automata({0, 1}, {reg_tree.value}, {0: [[reg_tree.value, 1]]}, 0, 1)
 
 
+def _norm_reg(reg_tree):
+    if reg_tree.value == 'and':
+        return ''.join([_norm_reg(i) for i in reg_tree.children if i.value != 'ε'])
+
+    elif reg_tree.value == 'or':
+        vals = [i.value for i in reg_tree.children]
+        eps = True
+        if 'cycle' in vals: eps = False
+        to_parallel = []
+        for i in reg_tree.children:
+            if i.value == 'ε':
+                if eps:
+                    to_parallel.append(i)
+                    eps = False
+            else:
+                to_parallel.append(i)
+
+        if len(to_parallel) > 1:
+            l, r = '(', ')'
+        else:
+            l, r = '', ''
+
+        return l + '|'.join(list(set(map(_norm_reg, to_parallel)))) + r
+
+    elif reg_tree.value == 'cycle':
+        body = _norm_reg(reg_tree.children[0])
+        if len(body) > 1 and not check_balance(body[1:-1]) and body[0] == '(' and body[
+            1] == ')': return '(' + body + ')*'
+        if len(body) > 1 and (body[0] != '(' or body[-1] != ')'):
+            return '(' + body + ')*'
+        else:
+            return body + '*'
+
+    elif reg_tree.value == 'empty':
+        return ''
+
+    return reg_tree.value
+
+
+def norm_regex(r):
+    reg_tree = parse_regex(r)
+    reg = _norm_reg(reg_tree)
+
+    while reg[0] == '(' and reg[-1] == ')' and check_balance(reg[1:-1]):
+        reg = reg[1:-1]
+
+    return reg
+
+
 
 r = input()
-print('^' + regex_to_automata(parse_regex(r)).to_regex() + '$')
+print('^' + norm_regex(regex_to_automata(parse_regex(r)).to_regex()) + '$')
