@@ -59,6 +59,13 @@ class Automata:
             res[i[0]].append([i[1], i[2]])
         return res
 
+    @staticmethod
+    def unify_transitions(d: dict):
+        unify_list = lambda l: list(list(i) for i in set(tuple(j) for j in l))
+
+        for key, value in d.items(): d[key] = unify_list(d[key])
+        return d
+
     def set_transition_matrix(self):
         """
         Считает и присваивает матрицу переходов объекту автомата
@@ -137,7 +144,7 @@ class Automata:
 
         return trans[aut.start][aut.finish]
 
-    def concat(self, a):
+    def _concat(self, a):
         states1, states2 = list(self.states), list(a.states)
         alpha1, alpha2 = self.alphabet, a.alphabet
         trans1, trans2 = self.transitions, a.transitions
@@ -149,7 +156,15 @@ class Automata:
             zip(states2 + [start2], list(range(len(states1), len(states1) + len(states2))) + [finish1]))
         alphabet_new = alpha1.union(alpha2)
         transitions_new = self.union_dicts(dict(trans1), self.map_transitions(trans2, states_new_mapping))
-        return Automata(set(states_new), alphabet_new, transitions_new, start1, states_new_mapping[finish2])
+        return Automata(set(states_new), alphabet_new, self.unify_transitions(transitions_new), start1,
+                        states_new_mapping[finish2])
+
+    def concat(self, a):
+        start, finish, trans = self.start, self.finish, self.transitions
+        if start in trans and ['ε', finish] in trans[start]:
+            return self._concat(a).parallel(a)
+        else:
+            return self._concat(a)
 
     def parallel(self, a):
         states1, states2 = list(self.states), list(a.states)
@@ -166,7 +181,8 @@ class Automata:
                                       list(range(len(states1), len(states1) + len(states2))) + [start1] + [finish1]))
         alphabet_new = alpha1.union(alpha2)
         transitions_new = self.union_dicts(dict(trans1), self.map_transitions(trans2, states_new_mapping))
-        return Automata(set(states_new), alphabet_new, transitions_new, start1, states_new_mapping[finish2])
+        return Automata(set(states_new), alphabet_new, self.unify_transitions(transitions_new), start1,
+                        states_new_mapping[finish2])
 
     def product(self, a):
         states1, states2 = list(self.states), list(a.states)
@@ -209,7 +225,8 @@ class Automata:
 
         transitions_new = self.map_transitions(self.dict_transitions(transitions_pairs), states_mapping)
 
-        return Automata(set(range(len(state_pairs))), alphabet_new, transitions_new, start_new, finish_new)
+        return Automata(set(range(len(state_pairs))), alphabet_new, self.unify_transitions(transitions_new), start_new,
+                        finish_new)
 
     def iteration(self):
         # print(self.states)
@@ -220,7 +237,10 @@ class Automata:
         states_new = set(self.states)
         states_new.remove(self.finish)
         eps_aut = Automata({0, 1}, {'ε'}, {0: [['ε', 1]]}, 0, 1)
-        return eps_aut.concat(Automata(states_new, self.alphabet, self.map_transitions(self.transitions, mapping), self.start, self.start)).concat(eps_aut)
+        res = eps_aut.concat(
+            Automata(states_new, self.alphabet, self.unify_transitions(self.map_transitions(self.transitions, mapping)),
+                     self.start, self.start)).concat(eps_aut)
+        return res.parallel(eps_aut)
 
     def __str__(self):
         def print_transition(t):
