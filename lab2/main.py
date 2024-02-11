@@ -161,7 +161,7 @@ def regex_to_automata(reg_tree):
         return aut.iteration()
 
     if reg_tree.value == 'empty':
-        return Automata({0}, {}, {}, 0, 0)
+        return Automata({0}, set(), {}, 0, 0)
 
     else:
         # для букв
