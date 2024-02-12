@@ -47,6 +47,15 @@ main = do
 
   res' ""
 
+  -- синхронизация
+
+  forM_ [0 .. length a - 1] $ \i ->
+    forM_ [0 .. length a - 1] $ \j -> do
+      res' $ "(assert (= Md" ++ show i ++ "d" ++ show j ++ " MMd" ++ show i ++ "d" ++ show j ++ "))"
+
+
+  res' ""
+
   -- определим последнюю доминошку
   forM_ [0 .. length a - 1] $ \i -> do
     res' $ "(declare-const IsLast_d" ++ show i ++ " Int)"
