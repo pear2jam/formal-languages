@@ -239,7 +239,7 @@ class Automata:
         eps_aut = Automata({0, 1}, {'ε'}, {0: [['ε', 1]]}, 0, 1)
         res = eps_aut.concat(
             Automata(states_new, self.alphabet, self.unify_transitions(self.map_transitions(self.transitions, mapping)),
-                     self.start, self.start)).concat(eps_aut)
+                     self.start, self.start)).concat(eps_aut).parallel(self)
         return res.parallel(eps_aut)
 
     def __str__(self):
