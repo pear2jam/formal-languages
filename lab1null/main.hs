@@ -103,7 +103,7 @@ main = do
   -- самой доминошки
 
   forM_ [0..length a - 1] $ \i -> do
-    let situation = "(or " ++ unwords [ "(and (= (* IsFirst_d" ++ show i ++ " IsLast_d" ++ show i ++ ") 1) (= Md" ++ show i ++ " 1))" | j <- [0..length a - 1], i /= j] ++ ")"
+    let situation = "(or " ++ unwords [ "(and (= (* IsFirst_d" ++ show j ++ " IsLast_d" ++ show j ++ ") 1) (= Md" ++ show j ++ " 1))" | j <- [0..length a - 1], i /= j] ++ ")"
     res' $ "(assert (= Md" ++ show i ++ " (ite " ++ situation ++ " 0 Md" ++ show i ++ ") ))"
 
   res' ""
