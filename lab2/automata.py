@@ -4,7 +4,7 @@ class Automata:
         self.alphabet = alphabet  # set of symbols
         self.transitions = transitions  # dict: [[symbol, state]+]
         self.start = start  # number
-        self.finish = finish  # number
+        self.finish = finish  # set
         
         self.transitions_matrix = None
         
@@ -186,6 +186,7 @@ class Automata:
     def concat(self, a):
         return self._concat(a)
         start, finish, trans = self.start, self.finish, self.transitions
+        return self._concat(a)
         if start in trans and ['ε', finish] in trans[start]:
             return self._concat(a).parallel(a)
         else:
@@ -270,9 +271,8 @@ class Automata:
         states_new = set(self.states)
         states_new.remove(self.finish)
         eps_aut = Automata({0, 1}, {'ε'}, {0: [['ε', 1]]}, 0, 1)
-        res = Automata(states_new, self.alphabet, self.unify_transitions(self.map_transitions(self.transitions, mapping)), self.start, self.start).concat(eps_aut)
-        return res
-        res = eps_aut.concat(Automata(states_new, self.alphabet, self.unify_transitions(self.map_transitions(self.transitions, mapping)), self.start, self.start)).concat(eps_aut).parallel(self)
+        #res = Automata(states_new, self.alphabet, self.unify_transitions(self.map_transitions(self.transitions, mapping)), self.start, self.start).concat(eps_aut)
+        res = eps_aut.concat(Automata(states_new, self.alphabet, self.unify_transitions(self.map_transitions(self.transitions, mapping)), self.start, self.start)).concat(eps_aut)
         return res
         
     
