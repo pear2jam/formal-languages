@@ -20,6 +20,7 @@ def parse_block(r):
     # 'LA - lookahead', 'LB' - lookbehind, 'CM' - common
     while r[0] == '(' and r[-1] == ')' and check_balance(r[1:-1]):
         r = r[1:-1]
+    
     if len(r) > 3 and r[0:2] == '?=' and r[-1] == '$':
         return 'LAD', r[2:-1]
     elif len(r) > 2 and r[0:2] == '?=':
@@ -39,6 +40,8 @@ class ReTree:
     def __init__(self, value, children):
         self.value = value
         self.children = children
+    def __getitem__(self, idx):
+        return self.children[idx]
     def __str__(self):
         return f'{self.value} (with {len(self.children)} children)'
 
@@ -58,7 +61,7 @@ def parse_regex(r):
     # Избавляемся от оборачивающих скобок
     # '((a+b))' -> 'a+b'
     
-    while r[0] == '(' and r[-1] == ')' and check_balance(r[1:-1]):
+    while r[0] == '(' and r[-1] == ')' and check_balance(r[1:-1]) and parse_block(r)[0] == 'CM':
         r = r[1:-1]
     
     
@@ -113,7 +116,7 @@ def parse_regex(r):
     for i, exp in enumerate(exps):
         exp_type, exp = parse_block(exp)
         exp_types.append(exp_type)
-        exps[i] = exp
+        #exps[i] = exp
         if exp_type == 'CM':
             la_list.append(exp)
             lb_list.append(exp)
@@ -127,22 +130,25 @@ def parse_regex(r):
             lb_ind = max(lb_ind, i)
             
     
+    #print(exps)
     if la_flag and lb_flag:
         list_a, list_b = [], []
         return ReTree('inter', [parse_regex(''.join(la_list)), parse_regex(''.join(lb_list))])
     
     if la_flag:
-        a, b, c = ''.join(exps[:la_ind]), exps[la_ind], ''
-        if la_ind + 1 < len(exps): c = ''.join(exps[la_ind+1:])
+        a, b, c = ''.join(exps[:la_ind]), parse_block(exps[la_ind])[1], ''
+        
+        if la_ind + 1 < len(exps): 
+            c = ''.join(exps[la_ind+1:])
         if exp_types[la_ind] == 'LA':
-            b += '(a|b|c|d|e)*'
-            return ReTree('and', [parse_regex(a), ReTree('inter', [parse_regex(b), parse_regex(c)])])
-            return ReTree('and', [parse_regex(a), ReTree('inter', [parse_regex(b + c), parse_regex(c)])])
-        else:
-            return ReTree('and', [parse_regex(a), ReTree('inter', [parse_regex(b), parse_regex(c)])])
+            b += '(a|b|c|d)*'#|e|f|g|h|i|j|k|l|m|n|o|p|r|s|t)*'
+        return ReTree('and', [parse_regex(a), ReTree('inter', [parse_regex(b), parse_regex(c)])])
+        #return ReTree('and', [parse_regex(a), ReTree('inter', [parse_regex(b + c), parse_regex(c)])])
+        #else:
+        #   return ReTree('and', [parse_regex(a), ReTree('inter', [parse_regex(b), parse_regex(c)])])
     
     if lb_flag:
-        a, b, c = ''.join(exps[:lb_ind]), exps[lb_ind], ''
+        a, b, c = ''.join(exps[:lb_ind]), parse_block(exps[lb_ind])[1], ''
         if lb_ind + 1 < len(exps): c = ''.join(exps[lb_ind+1:])
         return ReTree('and', [ReTree('inter', [parse_regex(a), parse_regex(b)]), parse_regex(c)])
 
@@ -184,6 +190,84 @@ def regex_to_automata(reg_tree):
     else:
         # для букв
         return Automata({0, 1}, {reg_tree.value}, {0: [[reg_tree.value, 1]]}, 0, 1)
+
+
+
+def mul_term(a, b):
+    if a == 'ε': a = ''
+    if b == 'ε': b = ''
+    return a+b
+
+def mul(a, b):
+    res = []
+    for i in a:
+        for j in b: res.append(mul_term(i, j))
+    return res
+
+def resample_term(a, c):
+    return [a*i for i in range(int(c/len(a))+2)]
+
+
+def resample(a, max_l):
+    b = parse_regex(a)
+    if b.value == 'cycle':
+        b = [b]
+    elif b.value != 'and': return set([a])
+    else:
+        b = b.children
+    res = ['ε']
+    for i in b:
+        if i.value == 'cycle':
+            res = mul(res, resample_term(i[0].value, max_l-len(b)))
+        else:
+            res = mul(res, i.value)
+    return set(res)
+
+
+def equal(a, b):
+    a = resample(a, max(len(a), len(b)))
+    b = resample(b, max(len(a), len(b)))
+    #print(a, b)
+    if len(a.intersection(b)): return True
+    return False
+
+
+def simplify(a):
+    a = sorted(a)
+    seen = []
+    for i in range(len(a)):
+        for j in range(i+1, len(a)):
+            if equal(a[i], a[j]): 
+                
+                if a[i].count('*') > a[j].count('*') : seen.append(a[j])
+                elif a[i].count('*') == a[j].count('*'):
+                    if len(a[i]) < len(a[j]): seen.append(a[j])
+                    else: seen.append(a[i])
+                else: seen.append(a[i])
+                    
+    return list(set(a).difference(set(seen)))
+                
+
+def norm_reg(reg_tree):
+    if reg_tree.value == 'and':
+        res = ['ε']
+        for i in reg_tree.children:
+            res = mul(res, norm_reg(i))
+        return list(set(res))
+    if reg_tree.value == 'or':
+        res = []
+        for i in reg_tree.children:
+            res += norm_reg(i)
+        return list(set(res))
+    
+    if reg_tree.value == 'empty':
+        return ''
+    
+    if reg_tree.value == 'cycle':
+        return ['(' + '|'.join(norm_reg(reg_tree.children[0])) + ')*']
+    
+    else:
+        return reg_tree.value
 
 
 def _norm_reg(reg_tree):
@@ -244,5 +328,8 @@ def norm_regex(r):
 def solve(r):
     return norm_regex(regex_to_automata(parse_regex(r)).to_regex())
 
+def solve_simplify(r):
+    return '|'.join(simplify(norm_regex('|'.join(norm_reg(parse_regex(solve(r))))).split('|')))
+
 r = input()
-print('^' + solve(r) + '$')
+print('^' + solve_simplify(r) + '$')
