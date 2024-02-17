@@ -1,5 +1,8 @@
 from automata import Automata
 
+import random
+random.seed(10)
+
 
 def check_balance(s):
     # соблюдается ли баланс скобок
