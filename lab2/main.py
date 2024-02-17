@@ -158,26 +158,26 @@ def regex_to_automata(reg_tree):
         for i in range(1, len(reg_tree.children)):
             aut = aut.concat(regex_to_automata(reg_tree.children[i]))
         return aut
-
+    
     if reg_tree.value == 'or':
         aut = regex_to_automata(reg_tree.children[0])
         for i in range(1, len(reg_tree.children)):
             aut = aut.parallel(regex_to_automata(reg_tree.children[i]))
         return aut
-
+    
     if reg_tree.value == 'inter':
         aut = regex_to_automata(reg_tree.children[0])
         for i in range(1, len(reg_tree.children)):
             aut = aut.product(regex_to_automata(reg_tree.children[i]))
         return aut
-
+    
     if reg_tree.value == 'cycle':
         aut = regex_to_automata(reg_tree.children[0])
         return aut.iteration()
-
+    
     if reg_tree.value == 'empty':
         return Automata({0}, set(), {}, 0, 0)
-
+    
     else:
         # для букв
         return Automata({0, 1}, {reg_tree.value}, {0: [[reg_tree.value, 1]]}, 0, 1)
@@ -186,7 +186,7 @@ def regex_to_automata(reg_tree):
 def _norm_reg(reg_tree):
     if reg_tree.value == 'and':
         return ''.join([_norm_reg(i) for i in reg_tree.children if i.value != 'ε'])
-
+    
     elif reg_tree.value == 'or':
         vals = [i.value for i in reg_tree.children]
         eps = True
@@ -199,28 +199,23 @@ def _norm_reg(reg_tree):
                     eps = False
             else:
                 to_parallel.append(i)
-
-        if len(to_parallel) > 1:
-            l, r = '(', ')'
-        else:
-            l, r = '', ''
-
+        
+        if len(to_parallel) > 1: l, r = '(', ')'
+        else: l, r = '', ''
+        
         return l + '|'.join(list(set(map(_norm_reg, to_parallel)))) + r
-
+    
     elif reg_tree.value == 'cycle':
         body = _norm_reg(reg_tree.children[0])
-        if len(body) > 1 and not check_balance(body[1:-1]) and body[0] == '(' and body[
-            1] == ')': return '(' + body + ')*'
-        if len(body) > 1 and (body[0] != '(' or body[-1] != ')'):
-            return '(' + body + ')*'
-        else:
-            return body + '*'
-
+        if len(body) > 1 and not check_balance(body[1:-1]) and body[0] == '(' and body[1] == ')': return '(' + body + ')*'
+        if len(body) > 1 and (body[0] != '(' or body[-1] != ')'): return '(' + body + ')*'
+        else: return body + '*'
+    
     elif reg_tree.value == 'empty':
         return ''
-
+    
+    
     return reg_tree.value
-
 
 def norm_regex(r):
     reg_tree = parse_regex(r)
