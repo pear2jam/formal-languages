@@ -238,7 +238,15 @@ def norm_regex(r):
     
     return reg
 
-
+def solve(r):
+    best_ans = norm_regex(regex_to_automata(parse_regex(r)).to_regex())
+    best_len = len(best_ans)
+    for i in range(10):
+        ans = norm_regex(regex_to_automata(parse_regex(r)).to_regex())
+        if len(ans) < best_len:
+            best_ans = ans
+            best_len = len(ans)
+    return best_ans
 
 r = input()
-print('^' + norm_regex(regex_to_automata(parse_regex(r)).to_regex()) + '$')
+print('^' + solve(r) + '$')
