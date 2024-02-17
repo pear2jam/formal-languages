@@ -141,7 +141,7 @@ def parse_regex(r):
         if la_ind + 1 < len(exps): 
             c = ''.join(exps[la_ind+1:])
         if exp_types[la_ind] == 'LA':
-            b += '(a|b|c|d)*'#|e|f|g|h|i|j|k|l|m|n|o|p|r|s|t)*'
+            b += '(a|b|c|d|e|f|g|h|m|n|p|r|s|t)*'
         return ReTree('and', [parse_regex(a), ReTree('inter', [parse_regex(b), parse_regex(c)])])
         #return ReTree('and', [parse_regex(a), ReTree('inter', [parse_regex(b + c), parse_regex(c)])])
         #else:
