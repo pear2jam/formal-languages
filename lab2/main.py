@@ -242,7 +242,7 @@ def norm_regex(r):
     return reg
 
 def solve(r):
-    return norm_regex(regex_to_automata(parse_regex(r)).to_regex()
+    return norm_regex(regex_to_automata(parse_regex(r)).to_regex())
 
 r = input()
 print('^' + solve(r) + '$')
