@@ -1,3 +1,5 @@
+from utils import ENfaToNfaConverter, NfaToDfaConverter
+
 class Automata:
     def __init__(self, states, alphabet, transitions, start, finish):
         self.states = states  # set of numbers - states
@@ -68,55 +70,6 @@ class Automata:
         
         for key, value in d.items(): d[key] = unify_list(d[key])
         return d
-        
-        
-    def is_transition(self, a, b, s):
-        #if a == b and s == 'ε': return False
-        q = [(a, s)]
-        #visited = set()
-        visited = dict()
-        def check_visited(state, how):
-            if (state, how) in visited:
-                return visited[(state, how)] < 3
-            return True
-        def update_visited(state, how):
-            if (state, how) in visited:
-                visited[(state, how)] += 1
-            else:
-                visited[(state, how)] = 1
-                
-        transitions = self.transitions
-        while q:
-            #print(q)
-            i = q.pop(0)
-            state, symbol = i[0], i[1]
-            if state not in transitions:
-                continue
-            t = transitions[state]
-            for j in t:
-                if j[0] == 'ε':
-                    if j[1] == b and symbol == 'ε': return True
-                    if check_visited(j[1], 'e'):
-                    #if (j[1], 'e') not in visited:
-                        #visited.add((j[1], 'e'))
-                        update_visited(j[1], 'e')
-                        q.append((j[1], symbol))
-                        
-                if j[0] == symbol:
-                    if j[1] == b: return True
-                    if check_visited(j[1], 's'):
-                    #if (j[1], 's') not in visited:
-                        #visited.add((j[1], 's'))
-                        update_visited(j[1], 's')
-                        q.append((j[1], 'ε'))
-                        
-            if symbol == 'ε':
-                update_visited(state, 'e')
-                #visited.add((state, 'e'))
-            else:
-                update_visited(state, 's')
-                #visited.add((state, 's'))
-        return False    
     
     
     def set_transition_matrix(self):
@@ -129,6 +82,97 @@ class Automata:
             else: matrix[t[0]][t[2]] += ('|' + t[1])
         self.transitions_matrix = matrix
         
+        
+    def enfa_to_nfa(self):
+        if 'ε' not in self.alphabet: return
+        trans = {}
+        for state in self.states:
+            trans[str(state)] = dict()
+            for alpha in self.alphabet:
+                trans[str(state)][alpha] = list()
+        
+        for t in self.list_transitions(self.transitions):
+            trans[str(t[0])][t[1]].append(str(t[2]))
+
+        conv = ENfaToNfaConverter()
+        conv.convert(trans, list(self.alphabet), list(map(str, list(self.states))), str(self.start), [str(self.finish)])
+        table = conv.enfa_transition_table
+        
+        finishes = [int(i) for i in table.keys() if str(self.finish) in table[i]['CL(q)']]
+        self.alphabet.remove('ε')
+        self.finish = finishes
+        
+        new_trans = []
+        for state in list(map(str, list(self.states))):
+            for alpha in self.alphabet:
+                to_add = table[state][f'δN(q,{alpha})']
+                for state2 in to_add:
+                    new_trans.append([int(state), alpha, int(state2)])
+        
+        self.transitions = self.dict_transitions(new_trans)
+        
+    
+    def nfa_to_dfa(self):
+        trans = {}
+        for state in self.states:
+            trans[str(state)] = dict()
+            for alpha in self.alphabet:
+                trans[str(state)][alpha] = list()
+        
+        for t in self.list_transitions(self.transitions):
+            trans[str(t[0])][t[1]].append(str(t[2]))
+        
+        conv = NfaToDfaConverter()
+        if isinstance(self.finish, int):
+            finish = [str(self.finish)]
+        else:
+            finish = list(map(str, self.finish))
+            
+        conv.convert(trans, list(self.alphabet), list(map(str, list(self.states))), str(self.start), finish)
+        table = conv.dfa_transition_table
+        start = [i for i in table.keys() if set(i).intersection(set([str(self.start)]))][0]
+        finishes_sets = [i for i in table.keys() if set(i).intersection(set(finish))]
+        #new_states_names = list(set(list(map(str, table.keys()))).difference(set(['frozenset()'])))
+        new_states_names = list(set(table.keys()).difference(set([frozenset()])))
+        new_states_mapping = dict(zip(new_states_names, list(range(len(new_states_names)))))
+        #print(new_states_mapping)
+        new_transitions = []
+        
+        for state in table.keys():
+            for alpha in table[state]:
+                if table[state][alpha]:
+                    new_transitions.append([new_states_mapping[state], alpha, new_states_mapping[frozenset(table[state][alpha])]])
+                    #new_transitions.append([new_states_mapping[str(state)], alpha, new_states_mapping['frozenset(' + str(table[state][alpha]) + ')']])
+                    
+        self.states = set(range(len(new_states_names)))
+        self.start = new_states_mapping[start]
+        self.finish = list(map(lambda x: new_states_mapping[x], finishes_sets))
+        self.transitions = self.dict_transitions(new_transitions)
+        
+        
+    def add_epsilon_tales(self):
+        new_mapping = dict(zip(list(self.states), [i+1 for i in self.states]))
+        self.transitions = self.map_transitions(self.transitions, new_mapping)
+        self.start += 1
+        if isinstance(self.finish, int): self.finish += 1
+        else: self.finish = [i+1 for i in self.finish]
+        self.states = set([i+1 for i in self.states] + [0])
+        self.alphabet.add('ε')
+        
+        self.transitions[0] = [['ε', self.start]]
+        
+        new_finish = max(self.states)+1
+        self.states.add(new_finish)
+        if isinstance(self.finish, int):
+            if self.finish in self.transitions: self.transitions[self.finish].append(['ε', new_finish])
+            else: self.transitions[self.finish] = [['ε', new_finish]]
+        else:
+            for state in self.finish:
+                if state in self.transitions: self.transitions[state].append(['ε', new_finish])
+                else: self.transitions[state] = [['ε', new_finish]]
+                    
+        self.finish = new_finish
+    
         
     def to_regex(self):
         """
@@ -155,15 +199,19 @@ class Automata:
             if len(r) == 1: return r + '*'
             return '(' + r + ')*'
         
-        new_start = Automata({0, 1}, {'ε'}, {0: [['ε', 1]]}, 0, 1)
-        new_finish = Automata({0, 1}, {'ε'}, {0: [['ε', 1]]}, 0, 1)
-        intermediate = Automata(self.states, self.alphabet, self.transitions, self.start, self.finish)
-        aut = new_start.concat(intermediate).concat(new_finish)
+        #new_start = Automata({0, 1}, {'ε'}, {0: [['ε', 1]]}, 0, 1)
+        #new_finish = Automata({0, 1}, {'ε'}, {0: [['ε', 1]]}, 0, 1)
+        #intermediate = Automata(self.states, self.alphabet, self.transitions, self.start, self.finish)
+        #aut = new_start.concat(intermediate).concat(new_finish)
+        self.enfa_to_nfa()
+        self.nfa_to_dfa()
+        self.add_epsilon_tales()
+        aut = Automata(self.states, self.alphabet, self.transitions, self.start, self.finish)
+
         aut.set_transition_matrix()
-        
+
         trans = aut.transitions_matrix
         inter_states = aut.states.difference(set([aut.finish, aut.start]))
-        #print(trans, inter_states, aut)
         
         for state in inter_states:
             for i in aut.states:
@@ -237,6 +285,11 @@ class Automata:
         
         
     def product(self, a):
+        self.enfa_to_nfa()
+        self.nfa_to_dfa()
+        a.enfa_to_nfa()
+        a.nfa_to_dfa()
+        
         states1, states2 = list(self.states), list(a.states)
         alpha1, alpha2 = self.alphabet, a.alphabet
         trans1, trans2 = self.transitions, a.transitions
@@ -250,8 +303,10 @@ class Automata:
         (0 (a) -> 1; 2 (a) -> 3 ==> [0 2] (a) -> [1 3])
         """
         
-        trans1_list, trans2_list = [], []
-        
+        #trans1_list, trans2_list = [], []
+        trans1_list, trans2_list = self.list_transitions(trans1), self.list_transitions(trans2)
+        trans1_list
+        """
         for i in states1:
             for j in states1:
                 for s in alphabet_new:
@@ -261,7 +316,7 @@ class Automata:
             for j in states2:
                 for s in alphabet_new:
                     if a.is_transition(i, j, s): trans2_list.append([i, s, j])
-                        
+        """
         #print(trans1_list, trans2_list)
         
         transitions_pairs = []
@@ -275,18 +330,25 @@ class Automata:
                     transitions_pairs.append([str(tr_i[0])+'&'+str(tr_j[0]), tr_i[1], str(tr_i[2])+'&'+str(tr_j[2])])
         
         state_pairs.append(str(start1)+'&'+str(start2))
-        state_pairs.append(str(finish1)+'&'+str(finish2))
+        for i in finish1:
+            for j in finish2:
+                state_pairs.append(str(i)+'&'+str(j))
         
         state_pairs = list(set(state_pairs))
         
         states_mapping = dict(zip(state_pairs, list(range(len(state_pairs)))))
         
         start_new = states_mapping[str(start1)+'&'+str(start2)]
-        finish_new = states_mapping[str(finish1)+'&'+str(finish2)]
+        finish_new = []
+        for i in finish1:
+            for j in finish2:
+                finish_new.append(states_mapping[str(i)+'&'+str(j)])
         
         transitions_new = self.map_transitions(self.dict_transitions(transitions_pairs), states_mapping)
         
-        return Automata(set(range(len(state_pairs))), alphabet_new, self.unify_transitions(transitions_new), start_new, finish_new)
+        r = Automata(set(range(len(state_pairs))), alphabet_new, self.unify_transitions(transitions_new), start_new, finish_new)
+        r.add_epsilon_tales()
+        return r
         
     def iteration(self):
         #print(self.states)
