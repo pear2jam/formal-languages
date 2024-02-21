@@ -194,4 +194,4 @@ def solve(r):
 
 
 r = input()
-print('^' + solve_simplify(r) + '$')
+print('^' + solve(r) + '$')
