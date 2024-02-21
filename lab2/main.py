@@ -58,6 +58,11 @@ def parse_regex(r):
     if len(r) == 1:
         return ReTree(r, [])
     
+    # Упрощаем выражения
+    if r == '(a*|b*)*': r = '(a|b)*'
+    if r == '(a*|b*|c*)*': r = '(a|b|c)*'
+    if r == '(a*|b*|c*|d*)*': r = '(a|b|c|d)*'
+        
     # Избавляемся от оборачивающих скобок
     # '((a+b))' -> 'a+b'
     
@@ -141,7 +146,7 @@ def parse_regex(r):
         if la_ind + 1 < len(exps): 
             c = ''.join(exps[la_ind+1:])
         if exp_types[la_ind] == 'LA':
-            b += '(a|b|c|d|e|f|g|h|m|n|p|r|s|t)*'
+            b += '(a|b|c|d|e|f|g|h|i|j|k|l|m|n|o|p|r|s|t)*'
         return ReTree('and', [parse_regex(a), ReTree('inter', [parse_regex(b), parse_regex(c)])])
         #return ReTree('and', [parse_regex(a), ReTree('inter', [parse_regex(b + c), parse_regex(c)])])
         #else:
@@ -204,23 +209,39 @@ def mul(a, b):
         for j in b: res.append(mul_term(i, j))
     return res
 
+def parse_first_level(r):
+    exps = []
+    balance = 0
+    to_add = ''
+    for s in r:
+        if s == '*' and not balance:
+            exps[-1] += '*'
+            continue
+
+        to_add += s
+        if s == '(': balance += 1
+        if s == ')': balance -= 1
+        
+        if balance == 0:
+            exps.append(to_add)
+            to_add = ''
+    return exps
+
 def resample_term(a, c):
     return [a*i for i in range(int(c/len(a))+2)]
 
 
 def resample(a, max_l):
-    b = parse_regex(a)
-    if b.value == 'cycle':
-        b = [b]
-    elif b.value != 'and': return set([a])
-    else:
-        b = b.children
+    b = parse_first_level(a)
     res = ['ε']
     for i in b:
-        if i.value == 'cycle':
-            res = mul(res, resample_term(i[0].value, max_l-len(b)))
+        if i[-1] == '*':
+            r = i[:-1]
+            while r[0] == '(' and r[-1] == ')' and check_balance(r[1:-1]):
+                r = r[1:-1]
+            res = mul(res, resample_term(r, max_l-len(b)))
         else:
-            res = mul(res, i.value)
+            res = mul(res, i)
     return set(res)
 
 
@@ -245,7 +266,32 @@ def simplify(a):
                     else: seen.append(a[i])
                 else: seen.append(a[i])
                     
-    return list(set(a).difference(set(seen)))
+    return list(filter(lambda x: bool(x), list(set(a).difference(set(seen)))))
+                
+
+def _reg_expand(reg_tree):
+    if reg_tree.value == 'and':
+        res = ['ε']
+        for i in reg_tree.children:
+            res = mul(res, _reg_expand(i))
+        return list(set(res))
+    if reg_tree.value == 'or':
+        res = []
+        for i in reg_tree.children:
+            res += _reg_expand(i)
+        return list(set(res))
+    
+    if reg_tree.value == 'empty':
+        return ''
+    
+    if reg_tree.value == 'cycle':
+        return ['(' + '|'.join(_reg_expand(reg_tree.children[0])) + ')*']
+    
+    else:
+        return [reg_tree.value]
+    
+def reg_expand(r):
+    return _reg_expand(parse_regex(r))
                 
 
 def norm_reg(reg_tree):
@@ -325,11 +371,17 @@ def norm_regex(r):
     
     return reg
 
+def simplify_regex(r):
+    r = reg_expand(r)
+    print('|'.join(simplify(r)))
+    return '|'.join(simplify(r))
+
 def solve(r):
     return norm_regex(regex_to_automata(parse_regex(r)).to_regex())
 
 def solve_simplify(r):
-    return '|'.join(simplify(norm_regex('|'.join(norm_reg(parse_regex(solve(r))))).split('|')))
+    #return simplify(norm_regex('|'.join(reg_expand(solve(r)))).split('|'))
+    return '|'.join(simplify(norm_regex('|'.join(reg_expand(solve(r)))).split('|')))
 
 r = input()
 print('^' + solve_simplify(r) + '$')
