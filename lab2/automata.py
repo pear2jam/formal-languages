@@ -71,25 +71,51 @@ class Automata:
         
         
     def is_transition(self, a, b, s):
-        if a == b and s == 'ε': return False
+        #if a == b and s == 'ε': return False
         q = [(a, s)]
-        visited = set()
+        #visited = set()
+        visited = dict()
+        def check_visited(state, how):
+            if (state, how) in visited:
+                return visited[(state, how)] < 3
+            return True
+        def update_visited(state, how):
+            if (state, how) in visited:
+                visited[(state, how)] += 1
+            else:
+                visited[(state, how)] = 1
+                
         transitions = self.transitions
         while q:
+            #print(q)
             i = q.pop(0)
             state, symbol = i[0], i[1]
             if state not in transitions:
                 continue
             t = transitions[state]
-            for j in t:        
+            for j in t:
                 if j[0] == 'ε':
                     if j[1] == b and symbol == 'ε': return True
-                    q.append((j[1], symbol))
-                    
-                elif j[0] == symbol:
+                    if check_visited(j[1], 'e'):
+                    #if (j[1], 'e') not in visited:
+                        #visited.add((j[1], 'e'))
+                        update_visited(j[1], 'e')
+                        q.append((j[1], symbol))
+                        
+                if j[0] == symbol:
                     if j[1] == b: return True
-                    if j[1] not in visited:
+                    if check_visited(j[1], 's'):
+                    #if (j[1], 's') not in visited:
+                        #visited.add((j[1], 's'))
+                        update_visited(j[1], 's')
                         q.append((j[1], 'ε'))
+                        
+            if symbol == 'ε':
+                update_visited(state, 'e')
+                #visited.add((state, 'e'))
+            else:
+                update_visited(state, 's')
+                #visited.add((state, 's'))
         return False    
     
     
